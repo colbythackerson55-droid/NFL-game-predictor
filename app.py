@@ -1,3 +1,4 @@
+from injuries import show_injuries
 import streamlit as st
 import pandas as pd
 
