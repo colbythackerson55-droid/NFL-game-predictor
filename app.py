@@ -188,6 +188,4 @@ if st.button("Predict Game", type="primary"):
         use_container_width=True,
         hide_index=True
     )
-st.divider()
 
-show_injuries()
