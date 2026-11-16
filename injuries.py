@@ -24,7 +24,8 @@ TEAM_CODES = {
 def load_injuries():
     try:
         df = pd.read_csv(INJURY_URL)
-        return df
+       st.write("Injury columns:", df.columns.tolist())
+st.write("Injury data loaded:", len(df)) return df
     except Exception as error:
         st.error("Could not load injury data.")
         st.exception(error)
