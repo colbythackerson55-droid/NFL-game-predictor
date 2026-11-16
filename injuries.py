@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 
 INJURY_URL = (
-    "https://github.com/nflverse/nflverse-data/"
+    "https://github.com/nflverse/nfldata/"
     "releases/download/injuries/injuries_2026.csv"
 )
 
