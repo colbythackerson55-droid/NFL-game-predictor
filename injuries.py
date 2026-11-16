@@ -86,6 +86,7 @@ def show_injuries(home_team, away_team):
             "in this app; source data updates daily."
         )
 
-    except Exception as error:
-        st.error(f"Could not load injuries: {error}")
+except Exception as error:
+    st.error("Injury data loading failed:")
+    st.exception(error)
 
