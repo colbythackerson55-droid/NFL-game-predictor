@@ -1,6 +1,10 @@
 import streamlit as st
 import pandas as pd
 
+from data_loader import load_games
+from model import create_training_data, train_model, FEATURES
+
+
 st.set_page_config(
     page_title="NFL Game Predictor",
     page_icon="🏈",
@@ -8,88 +12,135 @@ st.set_page_config(
 )
 
 st.title("🏈 NFL Game Predictor")
-st.write("Compare two NFL teams using their current statistics.")
+st.write("Machine-learning predictions based on historical NFL game data.")
 
-teams = {
-    "Buffalo Bills": {"wins": 8, "losses": 1, "pf": 287, "pa": 199},
-    "San Francisco 49ers": {"wins": 8, "losses": 1, "pf": 281, "pa": 196},
-    "Chicago Bears": {"wins": 7, "losses": 2, "pf": 241, "pa": 184},
-    "Cincinnati Bengals": {"wins": 7, "losses": 2, "pf": 278, "pa": 193},
-    "Kansas City Chiefs": {"wins": 7, "losses": 2, "pf": 237, "pa": 156},
-    "Detroit Lions": {"wins": 7, "losses": 2, "pf": 257, "pa": 199},
-    "Minnesota Vikings": {"wins": 7, "losses": 2, "pf": 176, "pa": 126},
-    "Denver Broncos": {"wins": 7, "losses": 2, "pf": 198, "pa": 186},
-    "Jacksonville Jaguars": {"wins": 7, "losses": 2, "pf": 269, "pa": 144},
-    "Pittsburgh Steelers": {"wins": 6, "losses": 3, "pf": 198, "pa": 182},
-    "Cleveland Browns": {"wins": 6, "losses": 4, "pf": 188, "pa": 220},
-    "Green Bay Packers": {"wins": 6, "losses": 4, "pf": 226, "pa": 221},
-    "Seattle Seahawks": {"wins": 6, "losses": 4, "pf": 223, "pa": 175},
-    "Los Angeles Rams": {"wins": 6, "losses": 4, "pf": 248, "pa": 187},
-    "New York Giants": {"wins": 5, "losses": 3, "pf": 203, "pa": 196},
-    "New England Patriots": {"wins": 5, "losses": 5, "pf": 221, "pa": 242},
-    "Carolina Panthers": {"wins": 4, "losses": 5, "pf": 219, "pa": 236},
-    "Dallas Cowboys": {"wins": 4, "losses": 6, "pf": 286, "pa": 282},
-    "Baltimore Ravens": {"wins": 4, "losses": 5, "pf": 189, "pa": 236},
-    "Las Vegas Raiders": {"wins": 4, "losses": 6, "pf": 251, "pa": 289},
-    "Houston Texans": {"wins": 3, "losses": 6, "pf": 233, "pa": 219},
-    "Indianapolis Colts": {"wins": 3, "losses": 7, "pf": 208, "pa": 271},
-    "Tampa Bay Buccaneers": {"wins": 3, "losses": 6, "pf": 202, "pa": 178},
-    "New Orleans Saints": {"wins": 3, "losses": 6, "pf": 202, "pa": 236},
-    "Atlanta Falcons": {"wins": 3, "losses": 7, "pf": 201, "pa": 258},
-    "Washington Commanders": {"wins": 3, "losses": 5, "pf": 196, "pa": 223},
-    "Arizona Cardinals": {"wins": 3, "losses": 7, "pf": 184, "pa": 289},
-    "Philadelphia Eagles": {"wins": 2, "losses": 7, "pf": 148, "pa": 221},
-    "New York Jets": {"wins": 2, "losses": 8, "pf": 194, "pa": 254},
-    "Miami Dolphins": {"wins": 1, "losses": 8, "pf": 148, "pa": 224},
-    "Tennessee Titans": {"wins": 1, "losses": 8, "pf": 167, "pa": 239},
-    "Los Angeles Chargers": {"wins": 0, "losses": 8, "pf": 121, "pa": 219},
-}
 
-home = st.selectbox("🏠 Home Team", list(teams.keys()))
-away = st.selectbox(
-    "✈️ Away Team",
-    [team for team in teams.keys() if team != home]
+@st.cache_data
+def get_training_data():
+    games = load_games()
+    return create_training_data(games)
+
+
+@st.cache_resource
+def get_model():
+    training_data = get_training_data()
+    return train_model(training_data)
+
+
+try:
+    training_data = get_training_data()
+    model = get_model()
+
+    st.success(
+        f"Model trained using {len(training_data):,} historical games."
+    )
+
+except Exception as e:
+    st.error("The model could not be loaded.")
+    st.exception(e)
+    st.stop()
+
+
+teams = sorted(
+    set(
+        training_data.index
+        if False
+        else []
+    )
 )
+
+# NFL teams currently appearing in the historical dataset
+games = load_games()
+
+teams = sorted(
+    set(games["home_team"].unique()) |
+    set(games["away_team"].unique())
+)
+
+
+col1, col2 = st.columns(2)
+
+with col1:
+    home_team = st.selectbox(
+        "🏠 Home Team",
+        teams
+    )
+
+with col2:
+    away_options = [
+        team for team in teams
+        if team != home_team
+    ]
+
+    away_team = st.selectbox(
+        "✈️ Away Team",
+        away_options
+    )
+
 
 if st.button("Predict Game", type="primary"):
 
-    h = teams[home]
-    a = teams[away]
+    # Calculate current statistics from the historical dataset
+    team_stats = {}
 
-    home_win_pct = h["wins"] / (h["wins"] + h["losses"])
-    away_win_pct = a["wins"] / (a["wins"] + a["losses"])
+    for team in teams:
+        team_games = games[
+            (games["home_team"] == team) |
+            (games["away_team"] == team)
+        ]
 
-    home_ppg = h["pf"] / (h["wins"] + h["losses"])
-    away_ppg = a["pf"] / (a["wins"] + a["losses"])
+        wins = 0
+        points = 0
+        allowed = 0
 
-    home_papg = h["pa"] / (h["wins"] + h["losses"])
-    away_papg = a["pa"] / (a["wins"] + a["losses"])
+        for _, game in team_games.iterrows():
 
-    home_score = (
-        home_ppg * 0.45
-        + away_papg * 0.25
-        + home_win_pct * 10
-        + 2
-    )
+            if game["home_team"] == team:
+                points += game["home_score"]
+                allowed += game["away_score"]
 
-    away_score = (
-        away_ppg * 0.45
-        + home_papg * 0.25
-        + away_win_pct * 10
-    )
+                if game["home_score"] > game["away_score"]:
+                    wins += 1
 
-    total = home_score + away_score
+            else:
+                points += game["away_score"]
+                allowed += game["home_score"]
 
-    home_probability = home_score / total
-    away_probability = away_score / total
+                if game["away_score"] > game["home_score"]:
+                    wins += 1
 
-    predicted_home_score = round(home_score)
-    predicted_away_score = round(away_score)
+        number_of_games = len(team_games)
+
+        if number_of_games > 0:
+            team_stats[team] = {
+                "win_pct": wins / number_of_games,
+                "ppg": points / number_of_games,
+                "papg": allowed / number_of_games
+            }
+
+    home = team_stats[home_team]
+    away = team_stats[away_team]
+
+    prediction = pd.DataFrame([{
+        "home_win_pct": home["win_pct"],
+        "away_win_pct": away["win_pct"],
+        "home_ppg": home["ppg"],
+        "away_ppg": away["ppg"],
+        "home_papg": home["papg"],
+        "away_papg": away["papg"]
+    }])
+
+    prediction = prediction[FEATURES]
+
+    probabilities = model.predict_proba(prediction)[0]
+
+    away_probability = probabilities[0]
+    home_probability = probabilities[1]
 
     if home_probability >= away_probability:
-        winner = home
+        winner = home_team
     else:
-        winner = away
+        winner = away_team
 
     st.divider()
 
@@ -97,44 +148,37 @@ if st.button("Predict Game", type="primary"):
 
     st.success(f"Predicted winner: **{winner}**")
 
-    col1, col2 = st.columns(2)
+    c1, c2 = st.columns(2)
 
-    with col1:
+    with c1:
         st.metric(
-            home,
+            home_team,
             f"{home_probability * 100:.1f}%"
         )
 
-    with col2:
+    with c2:
         st.metric(
-            away,
+            away_team,
             f"{away_probability * 100:.1f}%"
         )
 
-    st.subheader("Predicted Score")
-
-    st.write(
-        f"### {home} {predicted_home_score} — "
-        f"{predicted_away_score} {away}"
-    )
-
-    st.subheader("Team Statistics")
+    st.subheader("📊 Team Statistics")
 
     comparison = pd.DataFrame({
         "Statistic": [
-            "Win %",
-            "Points/Game",
-            "Points Allowed/Game"
+            "Win Percentage",
+            "Points Per Game",
+            "Points Allowed Per Game"
         ],
-        home: [
-            f"{home_win_pct * 100:.1f}%",
-            f"{home_ppg:.1f}",
-            f"{home_papg:.1f}"
+        home_team: [
+            f"{home['win_pct'] * 100:.1f}%",
+            f"{home['ppg']:.1f}",
+            f"{home['papg']:.1f}"
         ],
-        away: [
-            f"{away_win_pct * 100:.1f}%",
-            f"{away_ppg:.1f}",
-            f"{away_papg:.1f}"
+        away_team: [
+            f"{away['win_pct'] * 100:.1f}%",
+            f"{away['ppg']:.1f}",
+            f"{away['papg']:.1f}"
         ]
     })
 
