@@ -1,79 +1,91 @@
+
 import streamlit as st
 import pandas as pd
 
-def show_injuries():
+INJURY_URL = (
+    "https://github.com/nflverse/nflverse-data/"
+    "releases/download/injuries/injuries_2026.csv"
+)
 
-    st.header("🏥 NFL Injury Tracker")
+TEAM_CODES = {
+    "Buffalo Bills": "BUF",
+    "Kansas City Chiefs": "KC",
+    "Philadelphia Eagles": "PHI",
+    "Dallas Cowboys": "DAL",
+    "Detroit Lions": "DET",
+    "San Francisco 49ers": "SF",
+    "Carolina Panthers": "CAR",
+    "Pittsburgh Steelers": "PIT",
+    "New York Jets": "NYJ",
+    "Miami Dolphins": "MIA",
+}
 
-    st.write(
-        "Enter player availability information "
-        "to keep track of team injuries."
-    )
+@st.cache_data(ttl=3600)
+def load_injuries():
+    return pd.read_csv(INJURY_URL)
 
-    teams = [
-        "Buffalo Bills",
-        "Kansas City Chiefs",
-        "Philadelphia Eagles",
-        "Dallas Cowboys",
-        "Detroit Lions",
-        "San Francisco 49ers",
-        "Carolina Panthers",
-        "Pittsburgh Steelers",
-        "New York Jets",
-        "Miami Dolphins"
-    ]
+def show_injuries(home_team, away_team):
 
-    with st.form("injury_form"):
+    st.header("🏥 Injury Report")
 
-        player = st.text_input("Player name")
+    try:
+        injuries = load_injuries()
 
-        team = st.selectbox("Team", teams)
+        teams = [
+            TEAM_CODES[home_team],
+            TEAM_CODES[away_team]
+        ]
 
-        position = st.selectbox(
-            "Position",
-            ["QB", "RB", "WR", "TE", "OL",
-             "DL", "LB", "CB", "S", "K"]
+        filtered = injuries[
+            injuries["team"].isin(teams)
+        ].copy()
+
+        filtered = filtered.sort_values(
+            "week", ascending=False
         )
 
-        injury = st.text_input("Injury")
+        for team_name, team_code in [
+            (home_team, TEAM_CODES[home_team]),
+            (away_team, TEAM_CODES[away_team])
+        ]:
 
-        status = st.selectbox(
-            "Game status",
-            ["Out", "Doubtful", "Questionable",
-             "Available", "Not reported"]
+            st.subheader(team_name)
+
+            team_injuries = filtered[
+                filtered["team"] == team_code
+            ]
+
+            if team_injuries.empty:
+                st.info("No injury entries found.")
+                continue
+
+            display = team_injuries[[
+                "full_name",
+                "position",
+                "report_primary_injury",
+                "practice_status",
+                "report_status",
+                "week"
+            ]].rename(columns={
+                "full_name": "Player",
+                "position": "Position",
+                "report_primary_injury": "Injury",
+                "practice_status": "Practice",
+                "report_status": "Game Status",
+                "week": "Week"
+            })
+
+            st.dataframe(
+                display,
+                use_container_width=True,
+                hide_index=True
+            )
+
+        st.caption(
+            "Source: nflverse. Data refreshes every hour "
+            "in this app; source data updates daily."
         )
 
-        submitted = st.form_submit_button(
-            "Add Player"
-        )
+    except Exception as error:
+        st.error(f"Could not load injuries: {error}")
 
-    if "injuries" not in st.session_state:
-        st.session_state.injuries = []
-
-    if submitted and player:
-        st.session_state.injuries.append({
-            "Player": player,
-            "Team": team,
-            "Position": position,
-            "Injury": injury,
-            "Status": status
-        })
-
-    if st.session_state.injuries:
-
-        df = pd.DataFrame(
-            st.session_state.injuries
-        )
-
-        st.subheader("Current Injury List")
-
-        st.dataframe(
-            df,
-            use_container_width=True,
-            hide_index=True
-        )
-
-        st.write(
-            "Players listed:",
-            len(df)
-        )
