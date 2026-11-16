@@ -1,7 +1,6 @@
-from injuries import show_injuries
 import streamlit as st
-import pandas as pd
-
+st.write("App started")
+from injuries import show_injuries
 from data_loader import load_games
 from model import create_training_data, train_model, FEATURES
 
