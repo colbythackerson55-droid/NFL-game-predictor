@@ -22,8 +22,13 @@ TEAM_CODES = {
 
 @st.cache_data(ttl=3600)
 def load_injuries():
-    return pd.read_csv(INJURY_URL)
-
+    try:
+        df = pd.read_csv(INJURY_URL)
+        return df
+    except Exception as error:
+        st.error("Could not load injury data.")
+        st.exception(error)
+        return None
 def show_injuries(home_team, away_team):
 
     st.header("🏥 Injury Report")
